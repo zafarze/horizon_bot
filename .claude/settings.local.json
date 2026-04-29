@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -m pip install -q aiogram==3.13.1 aiohttp aiosqlite apscheduler python-dotenv loguru pytz pytest pytest-asyncio)",
+      "Bash(python -m pip install --no-compile -q pytest pytest-asyncio loguru aiosqlite python-dotenv)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(cp .env.example .env)",
+      "WebSearch",
+      "WebFetch(domain:gsa.github.io)",
+      "WebFetch(domain:depp.dahuasecurity.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_importance.py -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(.venv/Scripts/python.exe -c \"from bot.formatters import format_event; from datetime import time, datetime; r={'importance':0,'person_name':'Иванов','door_name':'КП1 Выход','direction':'out','event_name':None,'event_type':'600005','occurred_at':datetime\\(2026,4,28,10,44,52\\)}; print\\(format_event\\(r, time\\(7,45\\), time\\(16,0\\)\\)\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -c \"from bot.formatters import format_event; from datetime import time, datetime; r={'importance':0,'person_name':'Ivanov','door_name':'KP1 exit','direction':'out','event_name':None,'event_type':'600005','occurred_at':datetime\\(2026,4,28,10,44,52\\)}; print\\(format_event\\(r, time\\(7,45\\), time\\(16,0\\)\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from config import load_config; cfg=load_config\\(\\); print\\('chat_alerts:', cfg.tg.chat_alerts\\); print\\('admin_ids:', cfg.tg.admin_ids\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from config import load_config; cfg=load_config\\(\\); print\\('admin_ids:', cfg.tg.admin_ids\\); print\\('chat_alerts:', cfg.tg.chat_alerts\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import bot.i18n, bot.formatters, bot.report_csv, bot.handlers, bot.notifier, reports.daily, db; print\\('OK'\\)\")",
+      "Bash(mkdir -p tools)",
+      "Bash(git mv *)",
+      "Bash(mv check_env.py tools/check_env.py)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(.venv/Scripts/python.exe -m pip install openpyxl==3.1.5)",
+      "Bash(.venv/Scripts/python.exe -c \"import openpyxl; print\\('openpyxl', openpyxl.__version__\\)\")"
+    ]
+  }
+}
