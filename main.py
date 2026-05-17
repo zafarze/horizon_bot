@@ -13,9 +13,10 @@ from loguru import logger
 
 from config import AppConfig, has_dss_creds, has_telegram_creds, load_config
 from db import DB
-from dss.client import DSSClient, DSSAuthFatal
+from dss.client import DSSClient, DSSAuthFatal, DSSSessionConflict
 from dss.events import EventSubscriber
 from pipeline.dispatcher import Dispatcher as EventDispatcher
+from pipeline.group_sync import auto_sync_loop
 from pipeline.importance import ImportanceRules
 from bot.handlers import register_handlers
 from bot.lang import LangResolver
@@ -81,6 +82,14 @@ async def dss_loop(
             )
             await client.stop()
             return
+        except DSSSessionConflict as e:
+            # Старая сессия предыдущего процесса ещё держится на DSS; ждём её
+            # таймаута. 5с тут бесполезны — DSS отказывает мгновенно по
+            # тому же (user, ip, clientType).
+            logger.warning("DSS session conflict: {}. Sleeping 75s.", e)
+            await client.stop()
+            await asyncio.sleep(75)
+            continue
         except Exception as e:
             logger.exception("DSS loop crashed: {}", e)
         finally:
@@ -137,8 +146,14 @@ async def main() -> None:
     tg_dispatcher = TGDispatcher()
     router = Router()
 
-    # DSS-клиент для /dss_ping и /health (отдельный от dss_loop, чтобы не дёргать рабочий)
-    health_dss = DSSClient(cfg.dss.base_url, cfg.dss.user, cfg.dss.password)
+    # DSS-клиент для команд бота (/dss_groups, мастер «Добавить учителя» и т.п.).
+    # Отдельный от dss_loop. ВАЖНО: clientType должен отличаться, иначе DSS
+    # считает это той же сессией (ключ = user+ip+clientType) и отбивает второй
+    # логин с code=2004 «The user has logged in».
+    health_dss = DSSClient(
+        cfg.dss.base_url, cfg.dss.user, cfg.dss.password,
+        client_type="WEB",
+    )
     if has_dss_creds(cfg):
         await health_dss.start()
 
@@ -151,6 +166,7 @@ async def main() -> None:
         started_at=started_at,
         work_day_start=cfg.work_day_start,
         work_day_end=cfg.work_day_end,
+        chat_group_filters=cfg.tg.chat_group_filters,
     )
     tg_dispatcher.include_router(router)
 
@@ -164,6 +180,7 @@ async def main() -> None:
             dss=health_dss,
             work_day_start=cfg.work_day_start,
             work_day_end=cfg.work_day_end,
+            chat_group_filters=cfg.tg.chat_group_filters,
         )
 
     scheduler = None
@@ -172,12 +189,17 @@ async def main() -> None:
             bot=bot,
             db=db,
             resolver=resolver,
-            chat_id=cfg.tg.chat_reports,
+            chat_ids=cfg.tg.chat_reports,
+            chat_group_filters=cfg.tg.chat_group_filters,
             tz_name=cfg.tz,
             late_threshold=cfg.late_threshold_junior,
         )
         scheduler.start()
-        logger.info("Reports scheduler started (TZ={})", cfg.tz)
+        logger.info(
+            "Reports scheduler started (TZ={}, chats={}, filters={})",
+            cfg.tz, cfg.tg.chat_reports,
+            {k: sorted(v) for k, v in cfg.tg.chat_group_filters.items()},
+        )
 
     tasks: list[asyncio.Task] = [
         asyncio.create_task(tg_dispatcher.start_polling(bot)),
@@ -186,6 +208,17 @@ async def main() -> None:
 
     if has_dss_creds(cfg):
         tasks.append(asyncio.create_task(dss_loop(cfg, db, notifier)))
+        if cfg.auto_sync_groups:
+            tasks.append(asyncio.create_task(auto_sync_loop(
+                health_dss, db,
+                list(cfg.auto_sync_groups),
+                cfg.auto_sync_interval,
+            )))
+        else:
+            logger.info(
+                "DSS_AUTO_SYNC_GROUPS is empty - "
+                "person_groups must be filled manually via /group_add."
+            )
     else:
         logger.warning(
             "DSS_PASS is not set - DSS loop not started. Bot runs in TG-only mode."

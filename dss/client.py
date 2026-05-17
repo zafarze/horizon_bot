@@ -14,7 +14,10 @@ from typing import Any
 import aiohttp
 from loguru import logger
 
-KEEPALIVE_INTERVAL = 270  # 4.5 мин — DSS-сессия живёт ~5 мин
+# Эмпирически на этом DSS-инстансе токен инвалидируется через ~70с простоя
+# (см. логи: login → первый 401 на /obms через 71с). Дёргаем keepalive чаще,
+# с запасом, чтобы не ловить 401 на штатных запросах.
+KEEPALIVE_INTERVAL = 45
 
 
 class DSSAuthError(RuntimeError):
@@ -24,6 +27,13 @@ class DSSAuthError(RuntimeError):
 class DSSAuthFatal(DSSAuthError):
     """Терминальная ошибка авторизации (неверный пароль, заблокированная учётка).
     Ретрай только усугубит — нужно вмешательство человека."""
+    pass
+
+
+class DSSSessionConflict(DSSAuthError):
+    """code=2004 'The user has logged in' — старая сессия (того же user/ip/
+    clientType) ещё активна на DSS. Логаут без токена невозможен; нужно
+    подождать, пока она протухнет по таймауту на сервере (обычно ~70с)."""
     pass
 
 
@@ -187,6 +197,13 @@ class DSSClient:
                 )
                 self._auth_disabled = fatal
                 raise fatal
+
+            if code == 2004:
+                raise DSSSessionConflict(
+                    "DSS говорит 'The user has logged in' (code=2004). "
+                    "Старая сессия предыдущего процесса ещё активна; "
+                    "ждём её таймаута на сервере."
+                )
 
             # TODO(API_GUIDE): уточнить имя поля. Часто `token`, `tokenId`, `subjectToken`.
             self._token = (

@@ -29,6 +29,30 @@ def _parse_ids(raw: str) -> list[int]:
     return [int(x.strip()) for x in raw.split(",") if x.strip()]
 
 
+def _parse_chat_group_filters(raw: str) -> dict[int, frozenset[str]]:
+    """Парсит TG_CHAT_GROUP_FILTERS вида `chat_id:Group1+Group2,chat_id:Group3`.
+
+    Чат, отсутствующий в результате, получает все уведомления (как раньше).
+    Несколько групп для одного чата — через `+`. Битые записи игнорируются.
+    """
+    out: dict[int, frozenset[str]] = {}
+    if not raw or raw.startswith("TODO"):
+        return out
+    for chunk in raw.split(","):
+        chunk = chunk.strip()
+        if not chunk or ":" not in chunk:
+            continue
+        cid_str, groups_str = chunk.split(":", 1)
+        try:
+            cid = int(cid_str.strip())
+        except ValueError:
+            continue
+        groups = frozenset(g.strip() for g in groups_str.split("+") if g.strip())
+        if groups:
+            out[cid] = groups
+    return out
+
+
 def _parse_time(raw: str) -> time:
     h, m = raw.split(":")
     return time(int(h), int(m))
@@ -53,7 +77,13 @@ class TGConfig:
     # Список чатов для real-time уведомлений (можно несколько админов через
     # запятую в TG_CHAT_ALERTS). Пустой список = нотификатор не запускается.
     chat_alerts: list[int] = field(default_factory=list)
-    chat_reports: int = 0
+    # Список чатов для плановых сводок 08:45/13:00/18:00. Несколько id через
+    # запятую в TG_CHAT_REPORTS. Пустой список = планировщик не запускается.
+    chat_reports: list[int] = field(default_factory=list)
+    # chat_id → разрешённые группы. Чат без записи получает все события.
+    # Сообщения о людях без person_id или без членства в указанных группах
+    # отфильтрованному чату не отправляются.
+    chat_group_filters: dict[int, frozenset[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -71,6 +101,11 @@ class AppConfig:
     # Подстроки имён устройств, события с которых пишутся в БД, но НЕ уведомляются.
     # Полезно для шумных или нерелевантных устройств (лифты, тестовые ридеры).
     notify_ignore_device_patterns: tuple[str, ...] = ()
+    # DSS person-группы, которые периодически зеркалируются в локальную
+    # person_groups (для chat_group_filters). Пусто = синк выключен.
+    auto_sync_groups: tuple[str, ...] = ()
+    # Интервал авто-синка в секундах. Минимум 30с (защита от опечатки).
+    auto_sync_interval: int = 300
 
 
 def load_config() -> AppConfig:
@@ -85,8 +120,10 @@ def load_config() -> AppConfig:
             token=_optional("TG_TOKEN", "TODO"),
             admin_ids=_parse_ids(_optional("TG_ADMIN_IDS", "")),
             chat_alerts=_parse_ids(_optional("TG_CHAT_ALERTS", "")),
-            chat_reports=int(_optional("TG_CHAT_REPORTS", "0") or 0)
-            if not _optional("TG_CHAT_REPORTS", "").startswith("TODO") else 0,
+            chat_reports=_parse_ids(_optional("TG_CHAT_REPORTS", "")),
+            chat_group_filters=_parse_chat_group_filters(
+                _optional("TG_CHAT_GROUP_FILTERS", "")
+            ),
         ),
         db_path=ROOT / _optional("DB_PATH", "./bot.db").lstrip("./"),
         log_level=_optional("LOG_LEVEL", "INFO"),
@@ -100,6 +137,11 @@ def load_config() -> AppConfig:
             p.strip() for p in _optional("NOTIFY_IGNORE_DEVICES", "").split(",")
             if p.strip()
         ),
+        auto_sync_groups=tuple(
+            g.strip() for g in _optional("DSS_AUTO_SYNC_GROUPS", "").split(",")
+            if g.strip()
+        ),
+        auto_sync_interval=int(_optional("DSS_AUTO_SYNC_INTERVAL", "300") or 300),
     )
 
 

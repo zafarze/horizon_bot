@@ -69,6 +69,7 @@ def format_event(
     work_day_start: time | None = None,
     work_day_end: time | None = None,
     lang: str = "ru",
+    groups: Any = None,
 ) -> str:
     icon = IMPORTANCE_ICON.get(int(row["importance"] or 0), "•")
     person = escape(row["person_name"] or t("unknown_person", lang))
@@ -83,9 +84,14 @@ def format_event(
     lines = [
         f"{icon} <b>{name}</b>",
         f"👤 {person}",
-        f"🚪 {door} ({direction})",
-        f"🕒 {when}",
     ]
+    if groups:
+        # groups может быть set/frozenset/list; сортируем для стабильности.
+        names = sorted(str(g) for g in groups if g)
+        if names:
+            lines.append(f"🏷 {escape(', '.join(names))}")
+    lines.append(f"🚪 {door} ({direction})")
+    lines.append(f"🕒 {when}")
     status = _format_work_status(row, work_day_start, work_day_end, lang)
     if status:
         lines.append(status)
@@ -107,6 +113,72 @@ def format_inside_list(
         )
     tail = t("and_more", lang, n=len(rows) - limit) if len(rows) > limit else ""
     return head + "\n".join(body) + tail
+
+
+def format_today_summary(
+    *,
+    today_str: str,
+    regulars_count: int,
+    came: int,
+    late: int,
+    absent: int,
+    inside: int,
+    by_dept: list[tuple[str, int, int]] | None = None,
+    lang: str = "ru",
+) -> str:
+    """Текстовая сводка для пункта «Сегодня в цифрах».
+
+    by_dept — список (dept_name, came, regulars) для разбивки по отделам.
+    None / [] — секция не выводится.
+    """
+    pct = int(round(came * 100 / regulars_count)) if regulars_count else 0
+    lines = [
+        t("mon_today_head", lang, d=today_str),
+        t("mon_today_total", lang, n=regulars_count),
+        t("mon_today_came", lang, n=came, pct=pct),
+        t("mon_today_late", lang, n=late),
+        t("mon_today_absent", lang, n=absent),
+        t("mon_today_inside", lang, n=inside),
+    ]
+    if by_dept:
+        lines.append(t("mon_today_by_dept", lang))
+        for name, came_n, total_n in by_dept:
+            pct_d = int(round(came_n * 100 / total_n)) if total_n else 0
+            lines.append(
+                f"• <b>{escape(name)}</b>: {came_n}/{total_n} ({pct_d}%)"
+            )
+    return "\n".join(lines)
+
+
+def format_person_profile(
+    name: str | None,
+    person_id: str | None,
+    groups: Any = None,
+    position: str | None = None,
+    subject: str | None = None,
+    phone: str | None = None,
+    lang: str = "ru",
+) -> str:
+    """Карточка человека: имя, DSS ID, отделы (person_groups), должность,
+    предмет, телефон. Пустые поля выводятся как «—», чтобы пользователь
+    видел, чего не хватает."""
+    dash = t("prof_no_data", lang)
+    groups_str = dash
+    if groups:
+        sorted_g = sorted(str(g) for g in groups if g)
+        if sorted_g:
+            groups_str = ", ".join(sorted_g)
+    lines = [
+        t("prof_head", lang),
+        f"<b>{t('prof_name', lang)}:</b> {escape(name or '') or dash}",
+        f"<b>{t('prof_id', lang)}:</b> "
+        f"<code>{escape(person_id or '') or dash}</code>",
+        f"<b>{t('prof_groups', lang)}:</b> 🏷 {escape(groups_str)}",
+        f"<b>{t('prof_position', lang)}:</b> {escape(position or '') or dash}",
+        f"<b>{t('prof_subject', lang)}:</b> {escape(subject or '') or dash}",
+        f"<b>{t('prof_phone', lang)}:</b> {escape(phone or '') or dash}",
+    ]
+    return "\n".join(lines)
 
 
 def format_find_results(

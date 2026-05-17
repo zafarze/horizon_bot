@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(d:\\\\Projects\\\\horizon_bot\\\\.venv\\\\Scripts\\\\python.exe -m pip install -r d:\\\\Projects\\\\horizon_bot\\\\requirements.txt)",
+      "Bash(python -c ' *)",
+      "Bash(gh search *)",
+      "Bash(gh api *)",
+      "Read(//tmp/**)",
+      "Bash(mkdir -p /d/tmp/dssresearch)",
+      "Read(//d/tmp/**)",
+      "Bash(.venv/Scripts/python.exe -m py_compile config.py db.py main.py dss/persons.py pipeline/group_sync.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile pipeline/group_sync.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/xlsx.py bot/handlers.py bot/i18n.py)",
+      "Bash(.venv/Scripts/python.exe -c \"from bot.xlsx import generate_late_xlsx; from datetime import time, datetime; rows=[{'day':'2026-05-05','person_name':'Ivanov','first_in':'2026-05-05T08:45:00+05:00','last_out':None,'passes':1},{'day':'2026-05-05','person_name':'Akhmedova','first_in':'2026-05-05T07:30:00+05:00','last_out':None,'passes':1},{'day':'2026-05-04','person_name':'Boboev','first_in':'2026-05-04T09:10:00+05:00','last_out':None,'passes':2}]; b=generate_late_xlsx\\(rows, time\\(7,45\\)\\); print\\('xlsx bytes:', len\\(b\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/formatters.py bot/notifier.py)",
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -c \"from bot.formatters import format_event; from datetime import time, datetime; r={'importance':0,'person_name':'Mubarro Murodi','door_name':'Кп2 Выход турникет 1','direction':'out','event_name':None,'event_type':'600005','occurred_at':datetime\\(2026,5,5,18,17,1\\)}; print\\(format_event\\(r, time\\(7,45\\), time\\(16,0\\), groups={'Primary'}\\)\\); print\\('---'\\); print\\(format_event\\(r, time\\(7,45\\), time\\(16,0\\), groups={'Primary','TechPersonal'}\\)\\); print\\('---'\\); print\\(format_event\\(r, time\\(7,45\\), time\\(16,0\\), groups=None\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -m py_compile db.py bot/handlers.py bot/xlsx.py bot/teachers_xlsx.py)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(.venv/Scripts/python.exe -m py_compile dss/persons.py pipeline/group_sync.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/handlers.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/handlers.py bot/formatters.py bot/i18n.py db.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile dss/persons.py bot/handlers.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile db.py bot/xlsx.py bot/handlers.py bot/i18n.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/handlers.py bot/xlsx.py bot/formatters.py bot/i18n.py)",
+      "Bash(.venv/Scripts/python.exe -m py_compile bot/notifier.py)"
+    ],
+    "additionalDirectories": [
+      "D:\\tmp\\dssresearch"
+    ]
+  }
+}
